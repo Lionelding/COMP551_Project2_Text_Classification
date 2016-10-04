@@ -2,27 +2,34 @@
 import numpy as np
 import pandas as pd
 import csv
-
 import sys
 from time import time
 import matplotlib.pyplot as plt
 
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.feature_extraction.text import HashingVectorizer
 from sklearn.linear_model import RidgeClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.svm import LinearSVC
-from sklearn.linear_model import SGDClassifier
 from sklearn.linear_model import Perceptron
 from sklearn.linear_model import PassiveAggressiveClassifier
 from sklearn.naive_bayes import MultinomialNB
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.neighbors import NearestCentroid
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn import metrics
+global count
+
+
+########################################################################################
+#Initializing variables
+k_fold=5
+method_num=2
+categories = ['math','cs','stat','physics']
 
 ########################################################################################
 ## Load the train_in to a List
+print "_"*100
+print "------Loading Data-----"
+print ""
 with open('train_in.csv', 'rb') as a:
     reader = csv.reader(a)
     your_list = list(reader)
@@ -68,41 +75,17 @@ for i in range(0,test_out_num):
 print "The shape of Validate_out is : "+str(np.shape(goodtarget2))
 print 'Number of Validating_out samples is: ' +str(test_out_num)
 
-# split a training set and a test set
-y_train=goodtarget
-y_test=goodtarget2
+print ""
+print "-----Data Loaded-----"
+print ""
 
-categories = ['math','cs','stat','physics']
-
-########################################################################################
-print("Feature Extracting of training data")
-t0 = time()
-vectorizer = TfidfVectorizer(sublinear_tf=True, max_df=0.5, stop_words='english')
-X_train = vectorizer.fit_transform(goodinput)
-duration = time() - t0
-print("n_samples: %d, n_features: %d" % X_train.shape)
-print()
-
-
-print("Feature Extracting of testing data")
-t0 = time()
-X_test = vectorizer.transform(goodinput2)
-duration = time() - t0
-print("n_samples: %d, n_features: %d" % X_test.shape)
-print()
-
-
-# mapping from integer feature name to original token string
-feature_names = vectorizer.get_feature_names()
-if feature_names:
-    feature_names = np.asarray(feature_names)
 
 def trim(s):
     """Trim string to fit on terminal (assuming 80-column display)"""
     return s if len(s) <= 80 else s[:77] + "..."
 
 ###############################################################################
-# Benchmark classifiers
+
 def benchmark(clf):
     print('_' * 100)
     print("Training: ")
@@ -113,13 +96,14 @@ def benchmark(clf):
     print("train time: %0.3fs" % train_time)
 
     t0 = time()
-    pred = clf.predict(X_test)
+    pred = clf.predict(X_train)
     print pred
     test_time = time() - t0
     print("test time:  %0.3fs" % test_time)
 
-    score = metrics.accuracy_score(y_test, pred)
+    score = metrics.accuracy_score(y_train, pred)
     print("accuracy:   %0.3f" % score)
+    accuracy.append(score)
 
     if hasattr(clf, 'coef_'):
     	print("For each category, 15 most frequent words are : ")
@@ -130,43 +114,138 @@ def benchmark(clf):
     clf_descr = str(clf).split('(')[0]
     return clf_descr, score, train_time, test_time
 
+
+
+########################################################################################
+#k_fold testing 
+samples = [0]
+sample_len=train_in_num/k_fold
+for i in range (1,k_fold+1):
+	samples.append(sample_len*i)
+
+print "samples is : "+str(samples)
+print "k_fold number is : " + str(k_fold)
+print "number"
+
+accuracy=[]
+method_accuracy=[]
+count=0
+
+for i in range (0, k_fold):
+
+	print('_' * 100)
+	print "-----Step "+ str(i)+ " :Starting k_fold testing-----"
+	print ""
+	test_k_in=goodinput[samples[i]:samples[i+1]]
+	test_k_out=goodtarget[samples[i]:samples[i+1]]
+	train_k_in=int(i!=0)*goodinput[0:sample_len*i] + int(i!=(k_fold-1))*goodinput[samples[i+1]:samples[i+1]+sample_len*(k_fold-i-1)]
+	train_k_out=int(i!=0)*goodtarget[0:sample_len*i] + int(i!=(k_fold-1))*goodtarget[samples[i+1]:samples[i+1]+sample_len*(k_fold-i-1)]
+	print "train_k_in start from : " + str(0) +" to :" + str(sample_len*i)
+	print "and train_k_in start from : " + str(int(i!=(k_fold-1))*samples[i+1]) + " to :" + str(int(i!=(k_fold-1))*(samples[i+1]+sample_len*(k_fold-i-1)-1))
+ 	print "train_k_in shape is : " + str(np.shape(train_k_in))
+ 	print "test_k_in shape is : " + str(np.shape(test_k_in))
+
+# Load test and train targets
+	y_train=train_k_out
+	y_test=test_k_out
+
+
+########################################################################################
+	print("Feature Extracting of training data")
+	t0 = time()
+	vectorizer = TfidfVectorizer(sublinear_tf=True, max_df=0.5, stop_words='english')
+	X_train = vectorizer.fit_transform(train_k_in)
+	duration = time() - t0
+	print("n_samples: %d, n_features: %d" % X_train.shape)
+	print ""
+
+
+	print("Feature Extracting of testing data")
+	t0 = time()
+	X_test = vectorizer.transform(test_k_in)
+	duration = time() - t0
+	print("n_samples: %d, n_features: %d" % X_test.shape)
+	print ""
+
+
+# mapping from integer feature name to original token string
+	feature_names = vectorizer.get_feature_names()
+	if feature_names:
+	    feature_names = np.asarray(feature_names)
+
+
 ###############################################################################
-results = []
-for clf, name in (
-        (RidgeClassifier(tol=1e-2, solver="lsqr"), "Ridge Classifier"),
-        (Perceptron(n_iter=50), "Perceptron"),
-        (MultinomialNB(alpha=.01), "Naive Bayes"),
-        (Pipeline([('feature_selection', LinearSVC(penalty="l1", dual=False, tol=1e-3)),('classification', LinearSVC())]), "LinearSVC with L1-based feature selection"),
-        (PassiveAggressiveClassifier(n_iter=50), "Passive-Aggressive")):
-        #(KNeighborsClassifier(n_neighbors=10), "kNN"),
-        #(RandomForestClassifier(n_estimators=100), "Random forest")):
-    print('=' * 100)
-    print(name)
-    results.append(benchmark(clf))
+	results = []
+	for clf, name in (
+	        (RidgeClassifier(tol=1e-2, solver="lsqr"), "Ridge Classifier"),
+	        #(Perceptron(n_iter=50), "Perceptron"),
+	        #(MultinomialNB(alpha=.01), "Naive Bayes"),
+	        #(Pipeline([('feature_selection', LinearSVC(penalty="l1", dual=False, tol=1e-3)),('classification', LinearSVC())]), "LinearSVC with L1-based feature selection"),
+	        (PassiveAggressiveClassifier(n_iter=4), "Passive-Aggressive")):
+	        #(KNeighborsClassifier(n_neighbors=10), "kNN")):
+	        #(RandomForestClassifier(n_estimators=250), "Random forest")):
+	    print('=' * 100)
+	    print(name)
+	    method_accuracy.append(name)
+	    results.append(benchmark(clf))
 
 
 
-# make some plots
+	# make some plots
 
-indices = np.arange(len(results))
+	indices = np.arange(len(results))
 
-results = [[x[i] for x in results] for i in range(4)]
+	results = [[x[i] for x in results] for i in range(4)]
 
-clf_names, score, training_time, test_time = results
-training_time = np.array(training_time) / np.max(training_time)
-test_time = np.array(test_time) / np.max(test_time)
+	clf_names, score, training_time, test_time = results
+	training_time = np.array(training_time) / np.max(training_time)
+	test_time = np.array(test_time) / np.max(test_time)
 
-plt.figure(figsize=(12, 8))
-plt.title("Score")
-plt.barh(indices, score, .2, label="score", color='navy')
-plt.barh(indices + .3, training_time, .2, label="training time", color='c')
-plt.barh(indices + .6, test_time, .2, label="test time", color='darkorange')
-plt.yticks(())
-plt.legend(loc='best')
-plt.subplots_adjust(left=.25)
-plt.subplots_adjust(top=.95)
-plt.subplots_adjust(bottom=.05)
+	plt.figure(figsize=(12, 8))
+	plt.title("Score with k_fold : %d" % count)
+	plt.barh(indices, score, .2, label="score", color='navy')
+	plt.barh(indices + .3, training_time, .2, label="training time", color='c')
+	plt.barh(indices + .6, test_time, .2, label="test time", color='darkorange')
+	plt.yticks(())
+	plt.legend(loc='best')
+	plt.subplots_adjust(left=.25)
+	plt.subplots_adjust(top=.95)
+	plt.subplots_adjust(bottom=.05)
 
-for i, c in zip(indices, clf_names):
-    plt.text(-.3, i, c)
-plt.show()
+	for i, c in zip(indices, clf_names):
+	    plt.text(-.3, i, c)
+	
+
+	plt.savefig('k_fold_%d.png' % count)
+	#plt.show()
+	#plt.close()
+	count=count+1
+
+
+
+###############################################################################
+print('_' * 100)
+print "-----Step " + str(k_fold) + " :Summarize the accuracy using each method-----"
+print ""
+print accuracy
+k_fold_testing=[]
+for i in range (0,method_num):
+	a=method_accuracy[i]
+	b=sum(accuracy[i::method_num])/k_fold
+	k_fold_testing.append(a)
+	k_fold_testing.append(b)
+
+print k_fold_testing
+
+
+###############################################################################
+print('_' * 100)
+print "-----Step " + str(k_fold+1) + " :Validation Testing-----"
+print ""
+
+print("Feature Extracting of Validation data")
+t0 = time()
+X_test = vectorizer.transform(test_k_in)
+duration = time() - t0
+print("n_samples: %d, n_features: %d" % X_test.shape)
+print ""
