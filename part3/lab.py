@@ -11,3 +11,7 @@ print b
 print sum(b)/len(b)
 
 print int(5!=5)
+
+with open('Good.csv', 'wb') as myfile:
+	wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
+	wr.writerow(a)
