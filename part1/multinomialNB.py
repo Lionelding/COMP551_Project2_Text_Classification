@@ -22,7 +22,7 @@ def main():
     testDocuments = get_test_documents("/Users/Caitrin/Desktop/COMP551_Project2_Text_Classification/dataset/test_in.csv")
 
     for document in testDocuments:
-        c = get_document_max_class(prior, condProb, vocabulary, document)
+        c = get_document_max_class(prior, condProb, vocabulary, testDocuments[document])
         print document, c
         
 def get_test_documents(test_document_path):
@@ -54,7 +54,6 @@ def get_document_max_class(prior, condProb, vocabulary, document):
         for term in terms:
             if term in vocabulary:
                 score[c] += condProb[term][c]
-        print score, c
     return max(score.iteritems(), key=operator.itemgetter(1))[0]
     
 def train_multinomial_naive_bayes(class_terms, class_docs, vocabulary):
@@ -98,7 +97,7 @@ def get_class_term_counts(class_documents):
         terms = list()
         for d in class_documents[c]:
             terms.extend(word_tokenize(d))
-        class_terms[c] = Counter([porter_stemmer.stem(x.lower()) for x in terms])
+        class_terms[c] = Counter([porter_stemmer.stem(x.lower()) for x in terms if x.isalpha()])
         w.update(class_terms[c].iterkeys())
 
     return class_docs, class_terms, w
