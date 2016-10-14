@@ -1,2 +1,2 @@
-The code named ¡°KNN.py¡± is an implementation of non-linear KNN classifier. 
-To run the code: it is required to have the csv files ¡°train_in.csv¡±, ¡°train_out.csv¡± and ¡°stop.csv¡± accessible by the .py file. 
+The code named "KNN.py" is an implementation of non-linear KNN classifier.
+To run the code: it is required to have the csv files "train_in.csv"," train_out.csv" and "stop.csv" accessible by the .py file. 
