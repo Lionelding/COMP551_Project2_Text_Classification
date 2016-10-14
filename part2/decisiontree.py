@@ -21,16 +21,16 @@ with open('stop.csv', 'rb') as csvfile:
 #set different values to the following parameters
 
 #number of the most frequent words that will be used as feature words
-numKeywords = 50
+numKeywords = 200
 
 #k-nearest neighbors
-kNearest = 3
+kNearest = 55
 
 #total number of examples in training data
-numTotTraining =100#88639 # 647*137
+numTotTraining =88639 # 647*137
 
 #k-fold cross validation
-kFold = 10
+kFold = 137
 
 # a single list to store all words in all abstract 
 abstractList =[]
@@ -57,7 +57,7 @@ with open('train_in.csv', 'rb') as csvfile:
             keywordnew=[x for x in keyword if x not in stopword]
             stemmer = PorterStemmer()
             key_stemmed = [stemmer.stem(kw) for kw in keywordnew]
-            abstractList.append(keywordnew)
+            abstractList.append(key_stemmed)
 
 #reset the flag for future use
 skip = 1
@@ -75,7 +75,7 @@ with open('train_out.csv', 'rb') as csvfile:
             X = np.array([row])
 
             outputlist.append(X[0,1])
- # if print: outputlist is a list of of size = number of instances
+# if print: outputlist is a list of of size = number of instances
  
 # create several empty arrays for storing training/testing inputs/outputs for each 
 # round of k-fold cross validation
@@ -106,7 +106,7 @@ for index in range(0,kFold):
     #find out the most frequent words in allabst[] and store in idx[] as feature words
     wordFreq = collections.Counter(allabst)
     mostFreq = wordFreq.most_common(numKeywords)
-    print mostFreq
+    #print mostFreq
     c = np.array(mostFreq)
     idx = np.unique(c[:,0].reshape((numKeywords,1)))
     
@@ -119,7 +119,7 @@ for index in range(0,kFold):
             if idx[i] in abstractList[j]:
                 # if the word idx[] is present in this abstract of person j
                 # the corresponding position in trainingX[i][j] will no longer to be zero
-                trainingX[i][j] =  abstractList[j].count(idx[i])
+                trainingX[i][j] =  1#abstractList[j].count(idx[i])
    
     for j in range((index+1)*numPerSet,kFold*numPerSet):
         for i in range(idx.shape[0]):
@@ -127,7 +127,7 @@ for index in range(0,kFold):
             if idx[i] in abstractList[j]:
                 # if the word idx[] is present in this abstract of person j
                 # the corresponding position in trainingX[i][j] will no longer to be zero
-                trainingX[i][j-numPerSet] =  abstractList[j].count(idx[i])#30
+                trainingX[i][j-numPerSet] =  1#abstractList[j].count(idx[i])
 
     testingX = np.zeros((idx.shape[0],numPerSet))
     for j in range(index*numPerSet,(index+1)*numPerSet):
@@ -136,11 +136,15 @@ for index in range(0,kFold):
             if idx[i] in abstractList[j]:
                 # if the word idx[] is present in this abstract of person j
                 # the corresponding position in testing[i][j] will no longer to be zero
-                testingX[i][j-index*numPerSet] =  abstractList[j].count(idx[i])
+                testingX[i][j-index*numPerSet] =  1#abstractList[j].count(idx[i])
         #construct testing set output data
         testingY.append(outputlist[j])
 
     curError =0
+    # create variable for evaluation:
+    TP=0;
+    FP=0;
+    FN=0;
 
     #for each sample in testing data, find out their nearest neighbors
     for i in range (0,testingX.shape[1]):
@@ -172,6 +176,22 @@ for index in range(0,kFold):
         #if no match: error increment by 1
         if majorClass!=realClass:
             curError += 1
+
+        #store performance evaluation info
+        #if(majorClass=='cs' and realClass=='cs'):
+        #    TP+=1
+        #if(majorClass=='cs' and realClass!='cs'):
+        #    FP+=1
+        #if(majorClass!='cs' and realClass=='cs'):
+        #    FN+=1
+    
+    #print performance evaluation info to screen
+    #print 'TP is {}'.format(TP)
+    #print 'FP is {}'.format(FP)
+    #print 'FN is {}'.format(FN)
+    #print 'Precision is {}'.format(0.1*TP/(TP+FP)/0.1)
+    #print 'Recall is {}'.format(0.1*TP/(TP+FN)/0.1)
+
     #give the rate of error (by dividing the total curError number by the total number of testing set)
     print 'curError is {}'.format(curError)
     curKFoldRoundErrorRate = 0.1*curError/testingX.shape[1]/0.1
