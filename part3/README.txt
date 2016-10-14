@@ -11,3 +11,4 @@ The folder contains:
 3. test_in is the input for prediction
 4. Summary is the cross-validation result
 5. Output.csv is the prediction result
+6. GoodSubmit is the formatted prediction result submitted on Kaggle 
