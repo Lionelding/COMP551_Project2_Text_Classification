@@ -77,7 +77,7 @@ def remove_partition(documents, document_class, current_index, number_folds, id_
     end = (current_index + 1) *step_size
     if number_folds == 1:
         start = 0
-        end = 40
+        end = len(document_class)/5
     to_remove = id_list[start:end]
     test_documents = dict()
     test_documents_class = dict()
