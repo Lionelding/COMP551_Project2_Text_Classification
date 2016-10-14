@@ -8,22 +8,85 @@ from nltk.stem.porter import PorterStemmer
 from nltk import word_tokenize
 import math
 import operator
+from nltk.corpus import stopwords
+import sys
 
 def main():
-    training_file_path_d = "/Users/Caitrin/Desktop/COMP551_Project2_Text_Classification/dataset/train_in.csv"
-    training_file_path_c = "/Users/Caitrin/Desktop/COMP551_Project2_Text_Classification/dataset/train_out.csv"
-    class_documents = get_training_class_documents_from_file(training_file_path_d, training_file_path_c)
-    print "got class documents"
-    del class_documents['category']
-    class_docs, class_terms, vocabulary = get_class_term_counts(class_documents)
-    print "got class term counts"
-    prior, condProb = train_multinomial_naive_bayes(class_terms, class_docs, vocabulary)
-    print "calculated prior and condprob"
-    testDocuments = get_test_documents("/Users/Caitrin/Desktop/COMP551_Project2_Text_Classification/dataset/test_in.csv")
 
+    try:
+        training_file_path_d = sys.argv[1]
+        training_file_path_c = sys.argv[2]
+    except:
+        print "please specify training set path"
+        exit(0)
+        
+    if "crossvalidate" in sys.argv[3]:
+        alpha = [0, 1, 0.1]
+        run_cross_validation(training_file_path_d, training_file_path_c, alpha)
+    else:
+        try:
+            test_file_path = sys.argv[3]
+        except:
+            "please specify test set path if not performing cross validation"
+            exit(0)
+        try:
+            documents, document_class = get_training_class_documents_from_file(training_file_path_d, training_file_path_c)
+            testDocuments = get_test_documents(test_file_path)
+        except:
+            "bad file specifcation or format"
+            exit(0)
+            
+        class_documents = put_documents_in_class(documents, document_class)
+        del class_documents['category']
+        class_docs, class_terms, vocabulary = get_class_term_counts(class_documents)
+        prior, condProb = train_multinomial_naive_bayes(class_terms, class_docs, vocabulary)
+        for document in testDocuments:
+            c = get_document_max_class(prior, condProb, vocabulary, testDocuments[document])
+        print document, c
+        
+def put_documents_in_class(documents, document_class)
+    class_documents = defaultdict(lambda: list())
+
+    for document in documents:
+        class_documents[document_class[document]].append(documents[document])
+
+    return class_documents
+
+def get_error(test_documents, classified_documents, prior, condProb, vocabulary):
+    
     for document in testDocuments:
         c = get_document_max_class(prior, condProb, vocabulary, testDocuments[document])
-        print document, c
+        
+def remove_partition(documents, document_class, current_index, number_folds, id_list):
+
+    step_size = len(id_list)/number_folds
+    start = current_index*step_size
+    end = (current_index + 1) *step_size
+    to_remove = id_list[start:end]
+    test_documents = dict()
+    test_documents_class = dict()
+    for key in to_remove:
+        if key in documents:
+            test_documents[key] = documents[key]
+            test_documents_class = document_class[key]
+            del documents[key]
+        
+def run_cross_validation(training_file_path_d, training_file_path_c, alpha):
+    test_errors = list()
+
+    documents, document_class = get_training_class_documents_from_file(training_file_path_d, training_file_path_c)
+    id_list = list(documents.keys())
+    
+    for a in alpha:
+        shorter_documents, shorter_document_class, test_documents, test_documents_class = remove_partition(documents, document_class, alpha.index(a), len(alpha, id_list))
+        shorter_class_documents = put_documents_in_class(shorter_documents, shorter_document_class)
+        del class_documents['category']
+        class_docs, class_terms, vocabulary = get_class_term_counts(shorter_class_documents)
+        prior, condProb = train_multinomial_naive_bayes(class_terms, class_docs, vocabulary)
+        test_error = get_error(training_documents, training_documents_class, prior, condProb, vocabulary)
+        test_errors.append(test_error)
+
+    return test_errors.index(min(test_errors)) #returns the best alpha
         
 def get_test_documents(test_document_path):
     """ Returns dict of test documents
@@ -33,7 +96,7 @@ def get_test_documents(test_document_path):
         reader = csv.reader(csvfile)
         for line in reader:
             documents[line[0]] = line[1]
-
+            
     return documents
     
 def get_document_max_class(prior, condProb, vocabulary, document):
@@ -97,14 +160,16 @@ def get_class_term_counts(class_documents):
         terms = list()
         for d in class_documents[c]:
             terms.extend(word_tokenize(d))
-        class_terms[c] = Counter([porter_stemmer.stem(x.lower()) for x in terms if x.isalpha()])
+        class_terms[c] = Counter([porter_stemmer.stem(word.lower()) for word in terms if (word.isalnum() and word not in stopwords.words('english')) ])
         w.update(class_terms[c].iterkeys())
 
     return class_docs, class_terms, w
 
-
 def get_training_class_documents_from_file(training_file_path_d, training_file_path_c):
     """Gets docs from csv into python objects
+    returns:
+    documents - dict(). Key is documentID
+    document_class - dict(). Key is documentID.
     """
     documents = dict()
     with open(training_file_path_d, 'rb') as csvfile:
@@ -112,13 +177,12 @@ def get_training_class_documents_from_file(training_file_path_d, training_file_p
         for line in reader:
             documents[line[0]] = line[1]
 
-    class_documents = defaultdict(lambda: list())
+    document_class = dict()
     with open(training_file_path_c, 'rb') as csvfile1:
         reader2 = csv.reader(csvfile1)
         for line in reader2:
-            class_documents[line[1]].append(documents[line[0]])
-
-    return class_documents
+            document_class[line[0]] = line[1]
+    return documents, document_class
 
 if __name__ == "__main__":
     main()
