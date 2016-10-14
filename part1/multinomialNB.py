@@ -21,30 +21,39 @@ def main():
         exit(0)
         
     if "crossvalidate" in sys.argv[3]:
-        alpha = [0, 1, 0.1]
-        run_cross_validation(training_file_path_d, training_file_path_c, alpha)
+        alpha = [0.000001, 0.00001, 0.0001, 0.001, 0.01, 0.1, 0, 1, 10, 5, 0.5, 0.005, 0.0005, 0.00005, 0.000005]
+        a, error = run_cross_validation(training_file_path_d, training_file_path_c, alpha)
+        print "best: ", a, error
+    elif "test" in sys.argv[3]:
+        try:
+            alpha = [float(sys.argv[4])]
+        except:
+            print "please specify alpha - the smoothing parameter"
+        a, error = run_cross_validation(training_file_path_d, training_file_path_c, alpha)
     else:
         try:
             test_file_path = sys.argv[3]
+            alpha = float(sys.argv[4])
         except:
-            "please specify test set path if not performing cross validation"
+            "please specify test set path and smoothing parameter if not performing cross validation"
             exit(0)
         try:
             documents, document_class = get_training_class_documents_from_file(training_file_path_d, training_file_path_c)
             testDocuments = get_test_documents(test_file_path)
         except:
-            "bad file specifcation or format"
+            print "bad file specifcation or format"
             exit(0)
-            
+
         class_documents = put_documents_in_class(documents, document_class)
-        del class_documents['category']
+        if 'category' in class_documents:
+            del class_documents['category']
         class_docs, class_terms, vocabulary = get_class_term_counts(class_documents)
         prior, condProb = train_multinomial_naive_bayes(class_terms, class_docs, vocabulary)
         for document in testDocuments:
             c = get_document_max_class(prior, condProb, vocabulary, testDocuments[document])
-        print document, c
+            print document, c
         
-def put_documents_in_class(documents, document_class)
+def put_documents_in_class(documents, document_class):
     class_documents = defaultdict(lambda: list())
 
     for document in documents:
@@ -52,41 +61,57 @@ def put_documents_in_class(documents, document_class)
 
     return class_documents
 
-def get_error(test_documents, classified_documents, prior, condProb, vocabulary):
+def get_error(testDocuments, test_documents_class, prior, condProb, vocabulary):
     
+    classified = 0
     for document in testDocuments:
         c = get_document_max_class(prior, condProb, vocabulary, testDocuments[document])
-        
-def remove_partition(documents, document_class, current_index, number_folds, id_list):
+        if c in test_documents_class[document]:
+            classified += 1
 
+    return 1 - (float(classified) / float(len(testDocuments))) #1 because it is the error...
+
+def remove_partition(documents, document_class, current_index, number_folds, id_list):
     step_size = len(id_list)/number_folds
     start = current_index*step_size
     end = (current_index + 1) *step_size
+    if number_folds == 1:
+        start = 0
+        end = 40
     to_remove = id_list[start:end]
     test_documents = dict()
     test_documents_class = dict()
     for key in to_remove:
         if key in documents:
             test_documents[key] = documents[key]
-            test_documents_class = document_class[key]
+            test_documents_class[key] = document_class[key]
             del documents[key]
+
+    return documents, document_class, test_documents, test_documents_class
         
 def run_cross_validation(training_file_path_d, training_file_path_c, alpha):
+
     test_errors = list()
 
     documents, document_class = get_training_class_documents_from_file(training_file_path_d, training_file_path_c)
     id_list = list(documents.keys())
     
     for a in alpha:
-        shorter_documents, shorter_document_class, test_documents, test_documents_class = remove_partition(documents, document_class, alpha.index(a), len(alpha, id_list))
+        shorter_documents, shorter_document_class, test_documents, test_documents_class = remove_partition(documents, document_class, alpha.index(a), len(alpha), id_list)
         shorter_class_documents = put_documents_in_class(shorter_documents, shorter_document_class)
-        del class_documents['category']
+        if 'category' in shorter_class_documents:
+            del shorter_class_documents['category']
         class_docs, class_terms, vocabulary = get_class_term_counts(shorter_class_documents)
         prior, condProb = train_multinomial_naive_bayes(class_terms, class_docs, vocabulary)
-        test_error = get_error(training_documents, training_documents_class, prior, condProb, vocabulary)
+        test_error = get_error(test_documents, test_documents_class, prior, condProb, vocabulary)
         test_errors.append(test_error)
+        print a, test_error
 
-    return test_errors.index(min(test_errors)) #returns the best alpha
+    print test_errors
+
+   # for e in test_errors:
+   #     print alpha[test_errors.index(e)], e
+    return alpha[test_errors.index(min(test_errors))], min(test_errors) #returns the best alpha
         
 def get_test_documents(test_document_path):
     """ Returns dict of test documents
@@ -109,6 +134,8 @@ def get_document_max_class(prior, condProb, vocabulary, document):
     vocabulary vocabulary
     document string of document
     """
+
+
     porter_stemmer = PorterStemmer()
     terms = [porter_stemmer.stem(x.lower()) for x in word_tokenize(document)]
     score = dict()
@@ -130,7 +157,6 @@ def train_multinomial_naive_bayes(class_terms, class_docs, vocabulary):
     number_of_docs = sum(class_docs.itervalues())
     
     for c in class_terms:
-        
         prior[c] = float(class_docs[c])/float(number_of_docs)
         
         # len is like adding 1 to every value
