@@ -65,11 +65,23 @@ def put_documents_in_class(documents, document_class):
 def get_error(testDocuments, test_documents_class, prior, condProb, vocabulary):
     
     classified = 0
+    tp = defaultdict(lambda: 0)
+    fp = defaultdict(lambda: 0)
+    fn = defaultdict(lambda: 0)
+
+    print len(testDocuments)
     for document in testDocuments:
         c = get_document_max_class(prior, condProb, vocabulary, testDocuments[document])
         if c in test_documents_class[document]:
             classified += 1
-
+            tp[c] += 1
+        else:
+            fp[c] += 1
+            fn[test_documents_class[document]] += 1
+            
+    print "true positives", tp
+    print "false positives", fp
+    print "false negavites", fn
     return 1 - (float(classified) / float(len(testDocuments))) #1 because it is the error...
 
 def remove_partition(documents, document_class, current_index, number_folds, id_list):
