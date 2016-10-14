@@ -21,7 +21,7 @@ def main():
         exit(0)
         
     if "crossvalidate" in sys.argv[3]:
-        alpha = [0.000001, 0.00001, 0.0001, 0.001, 0.01, 0.1, 0, 1, 10, 5, 0.5, 0.005, 0.0005, 0.00005, 0.000005]
+        alpha = [0.00001, 0.0001, 0.001, 0.01, 0.1, 0, 1]
         a, error = run_cross_validation(training_file_path_d, training_file_path_c, alpha)
         print "best: ", a, error
     elif "test" in sys.argv[3]:
@@ -48,7 +48,7 @@ def main():
         if 'category' in class_documents:
             del class_documents['category']
         class_docs, class_terms, vocabulary = get_class_term_counts(class_documents)
-        prior, condProb = train_multinomial_naive_bayes(class_terms, class_docs, vocabulary)
+        prior, condProb = train_multinomial_naive_bayes(class_terms, class_docs, vocabulary, alpha)
         for document in testDocuments:
             c = get_document_max_class(prior, condProb, vocabulary, testDocuments[document])
             print document, c
@@ -97,12 +97,16 @@ def run_cross_validation(training_file_path_d, training_file_path_c, alpha):
     id_list = list(documents.keys())
     
     for a in alpha:
+        print a
         shorter_documents, shorter_document_class, test_documents, test_documents_class = remove_partition(documents, document_class, alpha.index(a), len(alpha), id_list)
         shorter_class_documents = put_documents_in_class(shorter_documents, shorter_document_class)
         if 'category' in shorter_class_documents:
             del shorter_class_documents['category']
+        print "put documents in class"
         class_docs, class_terms, vocabulary = get_class_term_counts(shorter_class_documents)
-        prior, condProb = train_multinomial_naive_bayes(class_terms, class_docs, vocabulary)
+        print "got term counts"
+        prior, condProb = train_multinomial_naive_bayes(class_terms, class_docs, vocabulary, a)
+        print "got prior"
         test_error = get_error(test_documents, test_documents_class, prior, condProb, vocabulary)
         test_errors.append(test_error)
         print a, test_error
@@ -135,7 +139,6 @@ def get_document_max_class(prior, condProb, vocabulary, document):
     document string of document
     """
 
-
     porter_stemmer = PorterStemmer()
     terms = [porter_stemmer.stem(x.lower()) for x in word_tokenize(document)]
     score = dict()
@@ -146,7 +149,7 @@ def get_document_max_class(prior, condProb, vocabulary, document):
                 score[c] += condProb[term][c]
     return max(score.iteritems(), key=operator.itemgetter(1))[0]
     
-def train_multinomial_naive_bayes(class_terms, class_docs, vocabulary):
+def train_multinomial_naive_bayes(class_terms, class_docs, vocabulary, alpha):
     """Train naive bayes
     Returns:
        prior for each class - dict()
@@ -163,7 +166,7 @@ def train_multinomial_naive_bayes(class_terms, class_docs, vocabulary):
         all_term_count = sum(class_terms[c].itervalues()) + len(class_terms[c])
         
         for t in vocabulary:
-            term_count = 1 
+            term_count = alpha
             if t in class_terms[c]:
                 term_count += class_terms[c][t]
             condProb[t][c] = float(term_count)/float(all_term_count)
