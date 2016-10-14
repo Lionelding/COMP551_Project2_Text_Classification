@@ -11,6 +11,10 @@ from sklearn.linear_model import RidgeClassifier
 from sklearn import metrics
 global count
 global method
+global TP
+global FP
+global FN
+
 
 
 ########################################################################################
@@ -86,6 +90,8 @@ print ""
 print "-----Data Loaded-----"
 print ""
 
+
+
 ###############################################################################
 ## Defining training and testing method 
 def train_and_test(method_k):
@@ -94,6 +100,26 @@ def train_and_test(method_k):
     method_k.fit(X_train, y_train)
     pred = method_k.predict(X_train)
     grade = metrics.accuracy_score(y_train, pred)
+
+    ## Calculate the precision and recall
+    TP=0.0
+    FP=0.0
+    FN=0.0
+    cat='stat'
+    for i in range(0,len(pred)):
+    	if pred[i]==cat:
+    		TP=TP+1
+    	if (pred[i]==cat and y_train[i]!=cat):
+    		FP=FP+1
+    	if (pred[i]!=cat and y_train[i]==cat):
+    		FN=FN+1
+
+    print ("TP :" +str(TP))
+    print ("FP :" +str(FP))
+    print ("FN :" +str(FN))
+
+    print ('Precision :'+str(TP/(TP+FP)))
+    print ('Recall :'+str(TP/(TP+FN)))
     print("accuracy:   %0.3f" % grade)
     accuracy.append(grade)
     return grade
